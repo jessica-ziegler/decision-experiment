@@ -21,7 +21,7 @@ def test_repo_config_conditions(monkeypatch, condition, humans, ai):
 
 def test_no_backfill_and_no_ai_needs_no_claude(tmp_path):
     f = tmp_path / "c.yml"
-    f.write_text("condition: h\nconditions: {h: [human, human]}\nexperiment: {max_wait_seconds: null}\n")
+    f.write_text("condition: h\nconditions: {h: [human, human]}\nexperiment: {max_wait_seconds: null}\n", encoding="utf-8")
     assert not load_config(f).may_need_ai
 
 
@@ -44,9 +44,9 @@ def test_shipped_personalities_load_and_differ(monkeypatch):
 def _write(tmp_path, body):
     (tmp_path / "personalities.yml").write_text(
         "calm: {name: Calm, prompt: 'You are calm and write short polite messages.'}\n"
-        "loud: {name: Loud, prompt: 'You are loud and write in capital letters a lot.'}\n")
+        "loud: {name: Loud, prompt: 'You are loud and write in capital letters a lot.'}\n", encoding="utf-8")
     f = tmp_path / "config.yml"
-    f.write_text(body)
+    f.write_text(body, encoding="utf-8")
     return f
 
 
@@ -63,6 +63,6 @@ def test_pinned_and_pooled_personalities_are_validated(tmp_path):
 
 def test_ai_without_personality_file_is_rejected(tmp_path):
     f = tmp_path / "c.yml"
-    f.write_text("condition: c\nconditions: {c: [human, ai]}\n")
+    f.write_text("condition: c\nconditions: {c: [human, ai]}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="need personalities"):
         load_config(f)

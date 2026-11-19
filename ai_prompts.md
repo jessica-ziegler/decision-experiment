@@ -92,4 +92,34 @@ stores each AI's personality id and prompt. The agent prompt was split into a sh
 holding the task and the never-reveal rules, plus the personality. Tests were added for
 loading, validation and selection.)*
 
+### 10. Architecture diagram
+> Give me a UML class diagram of the architecture for my presentation slide.
+
+*(Claude generated a 16:9 UML class diagram as SVG and PNG. It covers the frontend hook,
+components and state type; the backend classes Session, SessionManager, Agent, Participant,
+Config, Personality, ClaudeClient, Store and Phase, plus the voting and personalities
+utilities; and MongoDB and the Claude API as external services. Each element is labelled
+with its relationships and multiplicities.)*
+
+### 11. Tests
+> Okay, awesome. As a final step, I need some unittests for checking the functionality. Can you add some? I saw that you have already run your code on tests, maybe you can reuse them.
+
+*(Claude turned its scratch end-to-end scripts into a pytest suite of 63 tests that runs in
+about 30 s with no MongoDB, API key or Docker. The suite covers the session engine, AI
+agents, end-to-end WebSocket sessions against the real app, voting, personalities, config,
+the Claude client and the database layer. To make this possible, agent timings moved into a
+swappable `Pacing` object, and a `pytest.ini` was added because plain `pytest` couldn't
+import the app. Writing the tests uncovered a bug: agent tasks were left running when a
+session was cancelled mid-round. Claude fixed it.)*
+
+### 12. Windows test failure
+> E       UnicodeDecodeError: 'charmap' codec can't decode byte 0x8d in position 4184: character maps to <undefined>
+
+*(Claude traced it to Windows reading files as cp1252 by default. `personalities.yml` is UTF-8
+and contains emojis (byte 0x8d is part of 👍), and the config loader opened it without an
+encoding. Claude set `encoding="utf-8"` on every file read and write in the app and tests and
+reproduced the exact error under cp1252. It verified with Python's `EncodingWarning` that no
+code path in the test run still relies on the platform default, and added the PowerShell
+syntax for switching conditions to the README.)*
+
 <!-- Append any further prompts below, in the same format. -->

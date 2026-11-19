@@ -131,7 +131,7 @@ class Config(BaseModel):
 
 def load_config(path: str | os.PathLike | None = None) -> Config:
     path = Path(path or os.getenv("CONFIG_PATH", "config.yml"))
-    raw = yaml.safe_load(path.read_text()) or {}
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     # CONDITION env var overrides the file so conditions can be switched
     # from the command line without editing anything.
     if override := os.getenv("CONDITION", "").strip():
@@ -140,5 +140,5 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
     # The personality library lives in its own file, resolved relative to config.yml.
     lib_name = (raw.get("ai") or {}).get("personalities_file", "personalities.yml")
     lib_path = Path(lib_name) if Path(lib_name).is_absolute() else path.parent / lib_name
-    raw["personality_library"] = (yaml.safe_load(lib_path.read_text()) or {}) if lib_path.exists() else {}
+    raw["personality_library"] = (yaml.safe_load(lib_path.read_text(encoding="utf-8")) or {}) if lib_path.exists() else {}
     return Config.model_validate(raw)

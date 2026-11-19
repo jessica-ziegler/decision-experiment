@@ -18,6 +18,7 @@ import logging
 import random
 import re
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .config import Personality
@@ -28,6 +29,22 @@ if TYPE_CHECKING:
     from .session import Session
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Pacing:
+    """Human-like timing shared by all agents (personalities add their own on top).
+    Module-level so tests can swap in a fast version."""
+    end_margin: float = 5.0             # stop starting new messages this close to the round end
+    read_delay: tuple = (1.0, 2.5)      # pause before "typing" a reply
+    idle: tuple = (10.0, 18.0)          # chime in after a lull of this many seconds
+    min_typing: float = 1.5
+    max_typing: float = 12.0
+    vote_delay: tuple = (2.0, 8.0)      # time taken to cast a vote
+    vote_margin: float = 3.0            # vote at least this long before voting closes
+
+
+PACING = Pacing()
 
 SYSTEM_PROMPT = """You are taking part in a short online group study as "{me}". \
 The participants in this text chat are {players}. You are {me}.
@@ -86,29 +103,32 @@ class Agent:
     # ------------------------------------------------------------------ chat
 
     async def discuss(self, round_no: int, ends_at: float) -> None:
+        pace = PACING
         sent = 0
         first = True
         while sent < self.max_messages:
             left = ends_at - time.time()
-            if left < 5:
+            if left < pace.end_margin:
                 return
             if first:
                 # Personality-specific warm-up: eager types jump in after a couple of
                 # seconds, reluctant ones hang back even if others are already talking.
-                await asyncio.sleep(min(random.uniform(*self.personality.opening_delay), left - 5))
+                await asyncio.sleep(min(random.uniform(*self.personality.opening_delay),
+                                        left - pace.end_margin))
                 first = False
             else:
                 # React to new messages, or chime in after a lull.
                 try:
                     await asyncio.wait_for(self._new_message.wait(),
-                                           timeout=min(random.uniform(10, 18), left - 5))
+                                           timeout=min(random.uniform(*pace.idle),
+                                                       left - pace.end_margin))
                 except asyncio.TimeoutError:
                     pass
             self._new_message.clear()
-            if ends_at - time.time() < 5:
+            if ends_at - time.time() < pace.end_margin:
                 return
 
-            await asyncio.sleep(random.uniform(1.0, 2.5))  # "reading"
+            await asyncio.sleep(random.uniform(*pace.read_delay))  # "reading"
             started = time.time()
             try:
                 text = await self._generate(round_no, ends_at)
@@ -119,7 +139,8 @@ class Agent:
                 continue
 
             # Personality-specific typing speed; the LLM latency counts as typing time.
-            typing = min(max(len(text) / random.uniform(*self.personality.typing_speed), 1.5), 12.0)
+            typing = min(max(len(text) / random.uniform(*self.personality.typing_speed),
+                             pace.min_typing), pace.max_typing)
             await asyncio.sleep(max(0.0, typing - (time.time() - started)))
             if self.s.phase != Phase.DISCUSSION or self.s.round != round_no:
                 return
@@ -150,7 +171,9 @@ class Agent:
 
     async def vote(self, round_no: int, ends_at: float) -> None:
         # Humans take a few seconds to vote; so do agents.
-        await asyncio.sleep(random.uniform(2, max(2.5, min(8, ends_at - time.time() - 3))))
+        lo, hi = PACING.vote_delay
+        latest = ends_at - time.time() - PACING.vote_margin
+        await asyncio.sleep(random.uniform(lo, max(lo, min(hi, latest))))
         letters = [label.split()[-1] for label in self.s.labels]
         prompt = VOTE_PROMPT.format(
             round=round_no,

@@ -35,6 +35,9 @@ All three conditions are defined in [`config.yml`](config.yml). Pick one with an
 | 2 humans + 1 AI | `CONDITION=two_humans_one_ai docker compose up --build` (default) |
 | 1 human + 2 AI | `CONDITION=one_human_two_ai docker compose up --build` |
 
+On Windows PowerShell, set the variable first:
+`$env:CONDITION="one_human_two_ai"; docker compose up --build`.
+
 You can also set `CONDITION=` in `.env`, or edit `condition:` in `config.yml` and run
 `docker compose restart backend`. The same file holds round count, durations, voting
 window, waiting-room hold and maximum wait, the Claude model / effort / thinking settings, and
@@ -151,9 +154,7 @@ reconnect (a reload is enough). If they don't come back, they just don't vote.
 - There's no participant authentication or recruitment-platform ID (e.g. a Prolific PID URL
   parameter), no consent/debrief pages, and no admin dashboard or CSV export.
 - A human who drops out after the start isn't replaced, and an AI doesn't take over their seat.
-- Tests are limited to unit tests (voting rules, config and personality selection, Claude
-  request/response handling against a mocked HTTP API), plus a scripted end-to-end run of all three conditions used during
-  development.
+- Tests cover the backend only; the React frontend has no automated tests yet.
 
 ## Local development (without Docker)
 
@@ -164,9 +165,33 @@ CONFIG_PATH=../config.yml uvicorn app.main:app --reload
 # frontend (proxies /ws and /api to :8000)
 cd frontend && npm install && npm run dev        # http://localhost:5173
 
-# tests
-cd backend && pip install pytest && pytest
 ```
+
+## Tests
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest                      # 63 tests, ~30 s, no MongoDB, API key or Docker needed
+```
+
+MongoDB is replaced by an in-memory store and Claude by a scripted fake (or an `httpx` mock
+transport for the HTTP layer). Agents run with near-zero delays, and sessions use sub-second
+rounds, so complete experiments run in about a second each.
+
+| File | What it checks |
+|---|---|
+| `test_session.py` | Full 3-human session: shuffled labels, chat broadcast, votes, early vote close, round-1 tally, tie-break, stored document. Also: invalid actions are rejected, a vote is confirmed only to the voter, the tally can be hidden, the waiting room reveals nothing, freed seats, latecomers, reconnecting and second tabs, disconnected voters, nobody voting, backfill after max wait, the minimum hold, label shuffling, personality assignment |
+| `test_agents.py` | Agents chat and vote through the session, respect message caps, stay silent on `PASS`, survive LLM errors, parse votes, abstain after two unusable answers, get the right prompts (personality, transcript, round-1 tally), and have their output cleaned |
+| `test_e2e.py` | The real app over WebSocket on a local port: 2 humans + 1 AI with a reload mid-session and a latecomer, 1 human + 2 AI, a health endpoint that reveals nothing, and the exact requests sent to the Claude API |
+| `test_voting.py` | Tallying and the decision rule (majority, tie → earlier round → random) |
+| `test_personalities.py` | Personalities are distinct within a session, pinned seats are kept, repeats only when the pool is too small |
+| `test_config.py` | The shipped `config.yml` / `personalities.yml` and validation errors |
+| `test_llm.py` | Claude request shape (thinking off, effort, API version, no temperature), retries, errors |
+| `test_store.py` | MongoDB operations, and failed writes are logged instead of crashing a session |
+
+Every test that sends data to a browser also checks that no payload reveals who is human or
+AI.
 
 ## Repository layout
 
@@ -177,6 +202,7 @@ docker-compose.yml    mongo + backend + frontend (nginx)
 backend/app/          main.py (FastAPI/WebSocket) · session.py (state machine, manager)
                       agents.py (AI participants) · personalities.py · llm.py (Claude client)
                       voting.py · db.py · config.py
+backend/tests/        pytest suite (see Tests)
 frontend/src/         App.tsx · useExperiment.ts (WebSocket hook) · components/
 ai_prompts.md         AI usage log: prompts, models and tools used
 ```

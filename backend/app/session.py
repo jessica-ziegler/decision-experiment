@@ -195,8 +195,10 @@ class Session:
         self._set_phase(Phase.DISCUSSION, self.cfg.experiment.discussion_seconds)
         await self.broadcast_state()
         tasks = [asyncio.create_task(a.discuss(r, self.phase_ends_at)) for a in self.agents]
-        await asyncio.sleep(self.cfg.experiment.discussion_seconds)
-        await self._cancel(tasks)
+        try:
+            await asyncio.sleep(self.cfg.experiment.discussion_seconds)
+        finally:  # also when the session itself is cancelled (shutdown)
+            await self._cancel(tasks)
 
     async def _voting(self, r: int) -> None:
         self.votes[r] = {}
@@ -208,7 +210,8 @@ class Session:
             await asyncio.wait_for(self._all_voted.wait(), timeout=self.cfg.experiment.voting_seconds)
         except asyncio.TimeoutError:
             pass
-        await self._cancel(tasks)
+        finally:
+            await self._cancel(tasks)
 
         result = {"round": r, "tally": voting.tally(self.votes[r], self.labels)}
         self.round_results.append(result)
