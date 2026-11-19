@@ -122,4 +122,18 @@ reproduced the exact error under cp1252. It verified with Python's `EncodingWarn
 code path in the test run still relies on the platform default, and added the PowerShell
 syntax for switching conditions to the README.)*
 
+### 13. Diagram again
+> Okay, now I need the architecture diagram again.
+
+*(Claude re-sent the UML class diagram and noted that it still matched the code.)*
+
+### 14. Diagram with tests
+> Include the test classes, if any.
+
+*(Claude pointed out that the 63 tests are pytest functions, not classes, and added the test
+doubles and drivers to the diagram as a "Tests" area: FakeStore, FakeLLM, FakeWS, Human,
+helpers, conftest fixtures, Tab, FakeClaudeAPI, RecordingCollection, and the test modules.
+Each fake is marked with the real class it replaces. Claude also added the new `Pacing` class
+to the backend and kept the original diagram as a separate file.)*
+
 <!-- Append any further prompts below, in the same format. -->
