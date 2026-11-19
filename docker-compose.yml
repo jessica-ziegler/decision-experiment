@@ -1,0 +1,40 @@
+# Start everything:          docker compose up --build
+# Pick another condition:    CONDITION=one_human_two_ai docker compose up --build
+# Then open http://localhost:8080 in one browser tab per human participant.
+
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: group_decision_chat
+      CONFIG_PATH: /app/config.yml
+      CONDITION: ${CONDITION:-}
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:

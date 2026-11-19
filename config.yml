@@ -1,0 +1,44 @@
+# Experiment configuration (read by the backend at startup).
+#
+# Switch condition without editing this file:
+#   CONDITION=one_human_two_ai docker compose up --build
+# ...or change `condition:` below and restart the backend:
+#   docker compose restart backend
+
+condition: two_humans_one_ai   # three_humans | two_humans_one_ai | one_human_two_ai
+
+# Participant composition per condition. Order is irrelevant: the
+# "Player A/B/C" labels are shuffled randomly for every session, so an AI
+# is never predictably the same letter. Entries can be a plain type
+# ("human" / "ai") or a mapping with an optional persona for an AI agent:
+#   - type: ai
+#     persona: "You are quiet and tend to agree with the majority."
+conditions:
+  three_humans:      [human, human, human]
+  two_humans_one_ai: [human, human, ai]
+  one_human_two_ai:  [human, ai, ai]
+
+experiment:
+  rounds: 2
+  discussion_seconds: 60
+  voting_seconds: 20
+  # Show the anonymous vote tally of earlier rounds during the next round.
+  # The final round's vote always decides (ties -> earlier rounds -> random).
+  show_round_results: true
+  # The session starts once all human slots are filled AND at least a random
+  # wait in this range (seconds since the first human joined) has passed, so
+  # an instant start does not reveal that the other participants are AI.
+  min_wait_seconds: [5, 12]
+  # If human seats are still empty this long after the first human joined, they
+  # are filled with AI agents and the session starts (recorded per session as
+  # `backfilled_ai_seats`). null = wait until all humans have joined.
+  max_wait_seconds: 30
+  max_message_length: 300
+
+ai:                            # AI participants are Claude (needs ANTHROPIC_API_KEY in .env)
+  model: claude-haiku-5-5      # fastest Claude model; chat needs low latency
+  effort: low                  # low | medium | high | xhigh | max
+  # Haiku 5.5 thinks by default and thinking delays replies, so it is switched off.
+  # Use `adaptive` for models that reject `disabled` (e.g. claude-sonnet-5-5).
+  thinking: disabled           # disabled | adaptive
+  max_messages_per_round: 3    # per agent, keeps AIs from dominating the chat
