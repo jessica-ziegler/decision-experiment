@@ -10,9 +10,8 @@ condition: two_humans_one_ai   # three_humans | two_humans_one_ai | one_human_tw
 # Participant composition per condition. Order is irrelevant: the
 # "Player A/B/C" labels are shuffled randomly for every session, so an AI
 # is never predictably the same letter. Entries can be a plain type
-# ("human" / "ai") or a mapping with an optional persona for an AI agent:
-#   - type: ai
-#     persona: "You are quiet and tend to agree with the majority."
+# ("human" / "ai") or a mapping that pins an AI seat to a personality from
+# personalities.yml, e.g.:  one_human_two_ai: [human, {type: ai, personality: skeptic}, ai]
 conditions:
   three_humans:      [human, human, human]
   two_humans_one_ai: [human, human, ai]
@@ -41,4 +40,9 @@ ai:                            # AI participants are Claude (needs ANTHROPIC_API
   # Haiku 5.5 thinks by default and thinking delays replies, so it is switched off.
   # Use `adaptive` for models that reject `disabled` (e.g. claude-sonnet-5-5).
   thinking: disabled           # disabled | adaptive
-  max_messages_per_round: 3    # per agent, keeps AIs from dominating the chat
+  max_messages_per_round: 3    # default cap per agent if its personality sets none
+  # Personalities (how each AI writes, argues and votes) live in personalities.yml.
+  # At session start every unpinned AI seat draws one at random from this pool; AIs in
+  # the same session always get different ones. "all" or a list of ids, e.g. [skeptic, shy].
+  personalities_file: personalities.yml
+  personalities: all

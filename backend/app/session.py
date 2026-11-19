@@ -18,7 +18,8 @@ from typing import Any, Callable
 from fastapi import WebSocket
 
 from . import voting
-from .agents import DEFAULT_PERSONAS, Agent
+from . import personalities
+from .agents import Agent
 from .config import Config
 from .db import Store
 from .llm import ClaudeClient
@@ -48,7 +49,7 @@ class Session:
 
         self.humans: list[Participant] = []
         self.human_slots = cfg.n_humans  # shrinks if empty seats are filled with AI
-        self.ais = [Participant(kind="ai", persona=p.persona)
+        self.ais = [Participant(kind="ai", personality=p.personality)
                     for p in cfg.participants if p.type == "ai"]
         self.backfilled_seats = 0
         self.participants: list[Participant] = []  # all, sorted by label once started
@@ -144,15 +145,19 @@ class Session:
         self.participants = everyone
         self.labels = [p.label for p in everyone]
 
-        personas = random.sample(DEFAULT_PERSONAS, k=len(DEFAULT_PERSONAS))
-        for i, p in enumerate(a for a in everyone if a.kind == "ai"):
-            persona = p.persona or personas[i % len(personas)]
-            p.persona = persona
-            assert self.llm is not None, "AI participants require an LLM client"
-            self.agents.append(Agent(self, p, self.llm, persona, self.cfg.ai.max_messages_per_round))
+        # Personalities are fixed here, before the first round: pinned seats keep
+        # theirs, the rest draw distinct ones at random from the configured pool.
+        ai_seats = [p for p in everyone if p.kind == "ai"]
+        chosen = personalities.choose([p.personality for p in ai_seats], self.cfg.personality_pool)
+        for p, pid in zip(ai_seats, chosen):
+            p.personality = pid
+            assert self.llm is not None, "AI participants require a Claude client"
+            self.agents.append(Agent(self, p, self.llm, pid, self.cfg.personality_library[pid],
+                                     self.cfg.ai.max_messages_per_round))
 
         log.info("[%s] starting: %s", self.id, ", ".join(
-            f"{p.label}={p.kind}{' (backfill)' if p.backfill else ''}" for p in everyone))
+            f"{p.label}={p.kind}" + (f"[{p.personality}]" if p.kind == "ai" else "")
+            + (" (backfill)" if p.backfill else "") for p in everyone))
         await self.store.create_session({
             "_id": self.id,
             "status": "running",
@@ -171,7 +176,9 @@ class Session:
                     "pid": p.pid,
                     "label": p.label,
                     "type": p.kind,
-                    "persona": p.persona if p.kind == "ai" else None,
+                    "personality": p.personality if p.kind == "ai" else None,
+                    "personality_prompt": (self.cfg.personality_library[p.personality].prompt
+                                           if p.kind == "ai" else None),
                     "backfill": p.backfill,
                     "joined_at": datetime.fromtimestamp(p.joined_at, timezone.utc) if p.kind == "human" else None,
                 }

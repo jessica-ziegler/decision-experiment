@@ -80,4 +80,16 @@ backfilled, 1 of 2 humans gets 1 AI, 2 of 3 humans gets 1 AI.)*
 `group_decision_chat` database and its `sessions` collection. It showed how to query it with
 `mongosh`, export it with `mongoexport`, and publish the port for a GUI.)*
 
+### 9. AI personalities
+> Okay, great. Now I want to add different AI personalities. Let's define 10 varying system prompts, from which the software can choose before starting the experiment. The personalities should act very differently in the chat.
+
+*(Claude wrote `personalities.yml` with 10 characters: leader, facilitator, shy, skeptic,
+cheerleader, analyst, joker, follower, strategist, pragmatist. Each one specifies writing
+style, discussion behaviour and voting rule, plus pacing knobs: messages per round, typing
+speed, opening delay. Each AI seat draws a distinct personality at random when the session
+starts, and the pool can be restricted or a seat pinned in `config.yml`. The session record
+stores each AI's personality id and prompt. The agent prompt was split into a shared base,
+holding the task and the never-reveal rules, plus the personality. Tests were added for
+loading, validation and selection.)*
+
 <!-- Append any further prompts below, in the same format. -->

@@ -25,6 +25,7 @@ services:
       CONDITION: ${CONDITION:-}
     volumes:
       - ./config.yml:/app/config.yml:ro
+      - ./personalities.yml:/app/personalities.yml:ro
     depends_on:
       mongo:
         condition: service_healthy
